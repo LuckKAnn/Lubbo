@@ -35,7 +35,6 @@ public class Invoker implements Callable<String> {
             //应该找到他的实现类，如何找到他的实现类呢？通过Spring？
              targetClass = Class.forName(className);
             Object bean = springContext.getBean(targetClass);
-
             //Object instance = Class.forName(className).newInstance();
              method = bean.getClass().getMethod(request.getMethodName(), request.getMethodParams());
             //method = targetClass.getMethod(request.getMethodName(),request.getMethodParams());
