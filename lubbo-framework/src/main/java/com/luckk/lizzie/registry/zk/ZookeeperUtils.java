@@ -19,17 +19,16 @@ public class ZookeeperUtils {
 
     private  static  final String TAG = "LUBOO";
 
-    private static final String DIRECTORY  ="/lubbo";
+    private static final String DIRECTORY  ="/lubbo/";
 
     public static void createNodes(CuratorFramework client, ResourcesURL url, ServiceBean serviceBean) throws Exception {
 
-        client.create().withMode(CreateMode.EPHEMERAL).forPath(DIRECTORY+serviceBean.getServiceName(), url.getVal().getBytes());
+        client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(DIRECTORY+serviceBean.getServiceName(), url.getVal().getBytes());
     }
 
 
     public static String getNodes(CuratorFramework client, String serviceName) throws Exception {
         //TODO:如果有多个地址怎么办呢？
-
         GetDataBuilder data = client.getData();
         byte[] bytes = data.forPath(DIRECTORY + serviceName);
         return new String(bytes, StandardCharsets.UTF_8);

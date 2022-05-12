@@ -4,6 +4,7 @@ import com.luckk.lizzie.rpc.tansport.LubboRequest;
 import com.luckk.lizzie.rpc.tansport.LubboResponse;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * @FileName: NettyClientHandler
@@ -11,6 +12,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
  * @Email: 1546165200@qq.com
  * @Date: 2022/4/12 20:03
  */
+@Slf4j
 public class NettyClientHandler extends ChannelInboundHandlerAdapter {
     private ChannelHandlerContext context;
 
@@ -27,7 +29,7 @@ public class NettyClientHandler extends ChannelInboundHandlerAdapter {
      */
     @Override
     public synchronized void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-
+        log.info("接收到回送的消息");
         if (msg instanceof LubboResponse){
             LubboResponse lubboResponse = (LubboResponse) msg;
             NettyClient.completeRPC(lubboResponse);
@@ -39,6 +41,7 @@ public class NettyClientHandler extends ChannelInboundHandlerAdapter {
     }
 
     public synchronized void call(LubboRequest lubboRequest) throws Exception {
+        log.info("发送RPC请求，请求的ID是:[{}]",lubboRequest.getRequestId());
         context.writeAndFlush(lubboRequest);
     }
     public synchronized void call(String info) throws Exception {

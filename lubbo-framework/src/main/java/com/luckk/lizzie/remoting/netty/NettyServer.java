@@ -1,5 +1,9 @@
 package com.luckk.lizzie.remoting.netty;
 
+import com.luckk.lizzie.rpc.tansport.LubboRequest;
+import com.luckk.lizzie.rpc.tansport.LubboResponse;
+import com.luckk.lizzie.serialize.LubboMessageDecoder;
+import com.luckk.lizzie.serialize.LubboMessageEncoder;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -12,6 +16,7 @@ import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.stereotype.Component;
 
 /**
@@ -21,13 +26,19 @@ import org.springframework.stereotype.Component;
  * @Date: 2022/4/12 19:22
  */
 @Slf4j
-@Component("nettyServer")
+@Component
 public class NettyServer {
 
     public  NettyServerHandle nettyServerHandle = null;
+
+    private AnnotationConfigApplicationContext springContext = null;
+    NettyServer(AnnotationConfigApplicationContext context){
+        springContext = context;
+    }
+
     public  void  startConnection() throws InterruptedException {
 
-         nettyServerHandle = new NettyServerHandle();
+         nettyServerHandle = new NettyServerHandle(springContext);
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workGroup = new NioEventLoopGroup();
         try{
@@ -36,14 +47,15 @@ public class NettyServer {
                     .channel(NioServerSocketChannel.class)
                     .option(ChannelOption.SO_BACKLOG,1024)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
-
                         @Override
                         protected void initChannel(SocketChannel ch) throws Exception {
-                            ch.pipeline().addLast("decoder", new ObjectDecoder(ClassResolvers
-                                    .weakCachingConcurrentResolver(this.getClass()
-                                            .getClassLoader())));
-                            ch.pipeline().addLast("encoder", new ObjectEncoder());
-                                 ch.pipeline().addLast(nettyServerHandle);
+                            //ch.pipeline().addLast("decoder", new ObjectDecoder(ClassResolvers
+                            //        .weakCachingConcurrentResolver(this.getClass()
+                            //                .getClassLoader())));
+                            //ch.pipeline().addLast("encoder", new ObjectEncoder());
+                            ch.pipeline().addLast("decoder",new LubboMessageDecoder(LubboRequest.class));
+                            ch.pipeline().addLast("encoder",new LubboMessageEncoder());
+                            ch.pipeline().addLast(nettyServerHandle);
                         }});
             System.out.println("netty start");
             log.info("netty server start ");

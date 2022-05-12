@@ -4,6 +4,7 @@ import com.luckk.lizzie.remoting.netty.NettyClient;
 import com.luckk.lizzie.rpc.Invocation;
 import com.luckk.lizzie.rpc.tansport.LubboRequest;
 import com.luckk.lizzie.rpc.tansport.LubboResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.framework.CuratorFramework;
 
 import java.lang.reflect.InvocationHandler;
@@ -18,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
  * @Email: 1546165200@qq.com
  * @Date: 2022/5/9 11:51
  */
+@Slf4j
 public class RpcClientProxy implements InvocationHandler {
 
 
@@ -27,7 +29,11 @@ public class RpcClientProxy implements InvocationHandler {
         this.invocation = invocation;
     }
 
+
+    public Class interfaces;
+
     public  <T> T getProxy(final Class interfaceClass){
+        this.interfaces = interfaceClass;
         return (T) Proxy.newProxyInstance(interfaceClass.getClassLoader(),
                 new Class[]{interfaceClass},this);
     }
@@ -52,7 +58,11 @@ public class RpcClientProxy implements InvocationHandler {
 
         //这个类的类名就是接口的名称
 
-        String name = proxy.getClass().getName();
+        //String name = proxy.getClass().getName();
+        //String name = interfaces.getClass().getName();
+        String name = interfaces.getName();
+
+        log.info("原生的类名为:[{}]",name);
 
         //创建Request对象,
         LubboRequest lubboRequest = new LubboRequest();
@@ -68,6 +78,7 @@ public class RpcClientProxy implements InvocationHandler {
         //起码要完成参数的封装吧，还要把这个对象传递给netty，问题是这个对象的参数信息如何拿到
         CompletableFuture<LubboResponse>requestAns = nettyClient.getRequestAns(lubboRequest.getRequestId());
         String ans = requestAns.get().getRpcResult();
+
 
         return ans;
     }

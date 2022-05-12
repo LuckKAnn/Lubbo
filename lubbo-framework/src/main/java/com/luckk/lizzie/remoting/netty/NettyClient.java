@@ -5,11 +5,11 @@ import com.luckk.lizzie.registry.zk.ZookeeperUtils;
 import com.luckk.lizzie.rpc.exception.LubboException;
 import com.luckk.lizzie.rpc.tansport.LubboRequest;
 import com.luckk.lizzie.rpc.tansport.LubboResponse;
+import com.luckk.lizzie.serialize.LubboMessageDecoder;
+import com.luckk.lizzie.serialize.LubboMessageEncoder;
+import com.luckk.lizzie.serialize.protostuff.ProtoStuffUtils;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -33,7 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class NettyClient {
 
 
-    private static ConcurrentHashMap<String,NettyClientHandler> cacheConnections = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String,Channel> cacheConnections = new ConcurrentHashMap<>();
 
 
     private static ConcurrentHashMap<String,CompletableFuture<LubboResponse>> cacheRequest = new ConcurrentHashMap<>();
@@ -57,8 +57,9 @@ public class NettyClient {
 
 
     private   NettyClientHandler clientHandler = null;
-    public  void  startConnection(String address) throws InterruptedException {
+    public  Channel  startConnection(String address) throws InterruptedException {
         clientHandler = new NettyClientHandler();
+        log.info("start netty client");
             Bootstrap b = new Bootstrap();
             EventLoopGroup group = new NioEventLoopGroup();
             b.group(group)
@@ -67,16 +68,23 @@ public class NettyClient {
                     .handler(new ChannelInitializer<SocketChannel>() {
                         protected void initChannel(SocketChannel socketChannel) throws Exception {
                             ChannelPipeline pipeline = socketChannel.pipeline();
-                            pipeline.addLast("decoder", new ObjectDecoder(ClassResolvers
-                                    .weakCachingConcurrentResolver(this.getClass()
-                                            .getClassLoader())));
-                            pipeline.addLast("encoder", new ObjectEncoder());
+                            //pipeline.addLast("decoder", new ObjectDecoder(ClassResolvers
+                            //        .weakCachingConcurrentResolver(this.getClass()
+                            //                .getClassLoader())));
+                            //pipeline.addLast("encoder", new ObjectEncoder());
+                            pipeline.addLast("decoder",new LubboMessageDecoder(LubboResponse.class));
+                            pipeline.addLast("encoder",new LubboMessageEncoder());
                             pipeline.addLast("handler", clientHandler);
                         }
                     });
 
-                b.connect(address, 9000).sync();
+        ChannelFuture channelFuture = b.connect(address, 9000).sync();
+        //TODO 如果调用这个的话，不就是同步阻塞了吗，所以是不是需要加监听器呢
+       // channelFuture.channel().closeFuture().sync();
+        Channel channel = channelFuture.channel();
+        log.info("start netty client end");
 
+        return channel;
 
     }
 
@@ -88,16 +96,30 @@ public class NettyClient {
      * 思路好像是这样的，Completablefuture是的类型是Response的类型，
      */
     public void RpcCall(LubboRequest lubboRequest) throws Exception {
+
+        log.info("start rpc call");
         CuratorFramework connection = ZookeeperClient.getConnection();
         String address = ZookeeperUtils.getNodes(connection, lubboRequest.getClassName());
+        log.info("获取到的服务器地址是:{}",address);
     //    这里拿到的 应该是服务的地址
-        clientHandler = null;
+        Channel channel = null;
         if (cacheConnections.containsKey(address)){
-            clientHandler = cacheConnections.get(address);
+            channel = cacheConnections.get(address);
         }
-        else startConnection(address);
+        else {
+            channel = startConnection(address);
+            cacheConnections.put(address,channel);
+        }
     //    现在就可以发送数据了
     //    如果想要异步的发送数据
+
+        log.info("发送RPC请求，请求的ID是:[{}]",lubboRequest.getRequestId());
+        // 这里为什么不能直接发送？这就是编解码器的问题了
+        //channel.writeAndFlush(lubboRequest);
+        //byte[] requestSerializ = ProtoStuffUtils.serializer(lubboRequest);
+        channel.writeAndFlush(lubboRequest);
+        //channel.writeAndFlush("msg from client");
+
 
         CompletableFuture<LubboResponse> completableFuture =  new CompletableFuture<>();
         cacheRequest.put(lubboRequest.getRequestId(),completableFuture);

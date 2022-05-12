@@ -19,6 +19,8 @@ public class HelloController {
 
     public void  rpc(){
         String s = helloFunction.sayHello();
-        System.out.println(s);
+
+        System.out.println("rpc调用结束");
+        System.out.println("打印结果为:"+s);
     }
 }

@@ -1,6 +1,7 @@
 package com.luckk.lizzie.rpc;
 
 import com.luckk.lizzie.rpc.tansport.LubboRequest;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -16,8 +17,10 @@ public class Invoker implements Callable<String> {
 
     LubboRequest request;
 
-    public Invoker(LubboRequest lubboRequest){
+    AnnotationConfigApplicationContext springContext;
+    public Invoker(LubboRequest lubboRequest, AnnotationConfigApplicationContext springContext){
         this.request  = lubboRequest;
+        this.springContext = springContext;
     }
 
     @Override
@@ -28,9 +31,15 @@ public class Invoker implements Callable<String> {
         Class<?> targetClass = null;
         Method method = null;
         try {
-            targetClass = Class.forName(className);
-            method = targetClass.getMethod(request.getMethodName(),request.getMethodParams());
-            Object invoke = method.invoke(targetClass, request.getParamsVal());
+            //LK 这是一个接口，不应该通过他去创建实例然后执行
+            //应该找到他的实现类，如何找到他的实现类呢？通过Spring？
+             targetClass = Class.forName(className);
+            Object bean = springContext.getBean(targetClass);
+
+            //Object instance = Class.forName(className).newInstance();
+             method = bean.getClass().getMethod(request.getMethodName(), request.getMethodParams());
+            //method = targetClass.getMethod(request.getMethodName(),request.getMethodParams());
+            Object invoke = method.invoke(bean, request.getParamsVal());
             return (String) invoke;
         } catch (NoSuchMethodException | ClassNotFoundException e) {
             e.printStackTrace();
